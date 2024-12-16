@@ -1,8 +1,8 @@
 import os
 from datetime import datetime
+from logger import log_message
 
-with open("log.txt", "a") as f:  
-    f.write(datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + " LOG\n")
+log_message()
 
 
 
