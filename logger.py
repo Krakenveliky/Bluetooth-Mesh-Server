@@ -3,4 +3,4 @@ from datetime import datetime
 
 def log_message():
     with open("log.txt", "a") as f:
-        f.write(datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + " LOG\n")
+        f.write(datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + " LOG SUCEFULLY ADDED\n")
