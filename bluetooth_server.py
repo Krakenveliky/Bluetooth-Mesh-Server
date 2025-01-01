@@ -26,6 +26,14 @@ def make_discoverable():
         os.system("sudo hciconfig hci0 piscan")
         log_event("Bluetooth set to discoverable mode.")
         print("Bluetooth is discoverable.")
+        
+        # Verify if the device is discoverable
+        result = os.popen("sudo hciconfig hci0").read()
+        if "UP RUNNING PSCAN" in result:
+            log_event("Bluetooth device is discoverable.")
+            print("Bluetooth device is discoverable.")
+        else:
+            raise Exception("Bluetooth device is not discoverable.")
     except Exception as e:
         # Log any errors if the command fails
         log_event(f"Failed to set Bluetooth to discoverable: {e}")
@@ -52,13 +60,18 @@ def start_bluetooth_server():
         log_event("Bluetooth server started. Waiting for connections...")
         print("Bluetooth server started. Waiting for connections...")
 
-        # Make the server discoverable to clients via SDP (Service Discovery Protocol)
-        bluetooth.advertise_service(
-            server_socket,
-            "RaspberryPiBluetoothServer",  # Server name
-            service_classes=[bluetooth.SERIAL_PORT_CLASS],  # Class for serial port communication
-            profiles=[bluetooth.SERIAL_PORT_PROFILE]        # Profile for serial port communication
-        )
+        try:
+            # Make the server discoverable to clients via SDP (Service Discovery Protocol)
+            bluetooth.advertise_service(
+                server_socket,
+                "rpi",  # Server name
+                service_classes=[bluetooth.SERIAL_PORT_CLASS],  # Class for serial port communication
+                profiles=[bluetooth.SERIAL_PORT_PROFILE]        # Profile for serial port communication
+            )
+        except bluetooth.BluetoothError as e:
+            log_event(f"Server error: no advertisable device")
+            print("Server error: no advertisable device")
+            return
 
         while True:
             try:
