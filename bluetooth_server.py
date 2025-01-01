@@ -1,6 +1,7 @@
 import os
 import bluetooth
 from datetime import datetime
+import time
 
 # Path to the log file
 LOG_FILE = "log.txt"
@@ -29,6 +30,8 @@ def make_discoverable():
         
         # Verify if the device is discoverable
         result = os.popen("sudo hciconfig hci0").read()
+        log_event(f"hciconfig output: {result}")
+        print(f"hciconfig output: {result}")
         if "UP RUNNING PSCAN" in result:
             log_event("Bluetooth device is discoverable.")
             print("Bluetooth device is discoverable.")
@@ -60,18 +63,20 @@ def start_bluetooth_server():
         log_event("Bluetooth server started. Waiting for connections...")
         print("Bluetooth server started. Waiting for connections...")
 
-        try:
-            # Make the server discoverable to clients via SDP (Service Discovery Protocol)
-            bluetooth.advertise_service(
-                server_socket,
-                "rpi",  # Server name
-                service_classes=[bluetooth.SERIAL_PORT_CLASS],  # Class for serial port communication
-                profiles=[bluetooth.SERIAL_PORT_PROFILE]        # Profile for serial port communication
-            )
-        except bluetooth.BluetoothError as e:
-            log_event(f"Server error: no advertisable device")
-            print("Server error: no advertisable device")
-            return
+        while True:
+            try:
+                # Make the server discoverable to clients via SDP (Service Discovery Protocol)
+                bluetooth.advertise_service(
+                    server_socket,
+                    "rpi",  # Server name
+                    service_classes=[bluetooth.SERIAL_PORT_CLASS],  # Class for serial port communication
+                    profiles=[bluetooth.SERIAL_PORT_PROFILE]        # Profile for serial port communication
+                )
+                break
+            except bluetooth.BluetoothError as e:
+                log_event(f"Server error: no advertisable device, retrying in 5 seconds...")
+                print("Server error: no advertisable device, retrying in 5 seconds...")
+                time.sleep(5)
 
         while True:
             try:
