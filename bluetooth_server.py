@@ -1,7 +1,13 @@
 import bluetooth
-from logger import log_message
+import subprocess
+from logger import log_device_connected
+
+def make_discoverable():
+    subprocess.run(["sudo", "hciconfig", "hci0", "piscan"])
 
 def start_bluetooth_server():
+    make_discoverable()
+    
     server_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
     port = bluetooth.PORT_ANY
     server_sock.bind(("", port))
@@ -17,7 +23,7 @@ def start_bluetooth_server():
 
     client_sock, client_info = server_sock.accept()
     print(f"Accepted connection from {client_info}")
-    log_message("DEVICE WAS CONNECTED")
+    log_device_connected()
 
     try:
         while True:
