@@ -1,10 +1,9 @@
 import os
 import bluetooth
 from datetime import datetime
-import time
 
 # Path to the log file
-LOG_FILE = "/home/filip/mesh/Bluetooth-Mesh-Server/log.txt"
+LOG_FILE = "log.txt"
 
 # Function to log events to a file
 def log_event(event):
@@ -16,8 +15,11 @@ def log_event(event):
         with open(LOG_FILE, "a") as f:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             f.write(f"{timestamp} - {event}\n")
-    except Exception as e:
-        print(f"Error logging event: {e}")
+    except FileNotFoundError:
+        os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+        with open(LOG_FILE, "a") as f:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            f.write(f"{timestamp} - {event}\n")
 
 # Function to make the Raspberry Pi always discoverable
 def make_discoverable():
@@ -43,11 +45,9 @@ def make_discoverable():
 
 # Function to start the Bluetooth server
 def start_bluetooth_server():
-    
     server_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
     server_sock.bind(("", bluetooth.PORT_ANY))
     server_sock.listen(1)
-
 
     try:
         # Ensure the Raspberry Pi is discoverable
@@ -61,9 +61,17 @@ def start_bluetooth_server():
 
         uuid = "35ef4adc-c1fe-45be-b386-ac1b30e77693"
 
-        bluetooth.advertise_service(server_sock, "rpi", service_id=uuid,
+        try:
+            log_event("Attempting to advertise service...")
+            bluetooth.advertise_service(server_sock, "rpi", service_id=uuid,
                                 service_classes=[uuid, bluetooth.SERIAL_PORT_CLASS],
                                 profiles=[bluetooth.SERIAL_PORT_PROFILE])
+            log_event("Service advertised successfully.")
+            print("Service advertised successfully.")
+        except Exception as e:
+            log_event(f"Failed to advertise service: {e}")
+            print(f"Failed to advertise service: {e}")
+            return
 
         while True:
             try:
@@ -101,3 +109,5 @@ def start_bluetooth_server():
         log_event("Bluetooth server shut down.")
         print("Bluetooth server shut down.")
 
+if __name__ == "__main__":
+    start_bluetooth_server()
