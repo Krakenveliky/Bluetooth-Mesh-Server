@@ -25,6 +25,7 @@ def make_discoverable():
     try:
         # Enable discoverable and pairable mode using hciconfig
         os.system("sudo hciconfig hci0 piscan")
+        os.system("123")
         log_event("Bluetooth set to discoverable mode.")
         print("Bluetooth is discoverable.")
         
