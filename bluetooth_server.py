@@ -48,7 +48,7 @@ def start_bluetooth_server():
 
     try:
         # Ensure the Raspberry Pi is discoverable
-        make_discoverable()
+        # make_discoverable()
 
         # Log that the server has started
         log_event("Bluetooth server started. Waiting for connections...")
@@ -58,7 +58,7 @@ def start_bluetooth_server():
 
         uuid = "35ef4adc-c1fe-45be-b386-ac1b30e77693"
 
-        bluetooth.advertise_service(server_sock, "SampleServer", service_id=uuid,
+        bluetooth.advertise_service(server_sock, "rpi", service_id=uuid,
                             service_classes=[uuid, bluetooth.SERIAL_PORT_CLASS],
                             profiles=[bluetooth.SERIAL_PORT_PROFILE],
                             # protocols=[bluetooth.OBEX_UUID]
@@ -100,7 +100,3 @@ def start_bluetooth_server():
         log_event("Bluetooth server shut down.")
         print("Bluetooth server shut down.")
 
-# Entry point of the script
-if __name__ == "__main__":
-    # Start the Bluetooth server
-    start_bluetooth_server()
