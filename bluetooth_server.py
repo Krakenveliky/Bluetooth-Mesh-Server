@@ -4,7 +4,7 @@ from datetime import datetime
 import time
 
 # Path to the log file
-LOG_FILE = "log.txt"
+LOG_FILE = "/home/filip/mesh/Bluetooth-Mesh-Server/log.txt"
 
 # Function to log events to a file
 def log_event(event):
@@ -12,9 +12,12 @@ def log_event(event):
     Logs events with timestamps to a log file.
     :param event: The event description to log.
     """
-    with open(LOG_FILE, "a") as f:
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        f.write(f"{timestamp} - {event}\n")
+    try:
+        with open(LOG_FILE, "a") as f:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            f.write(f"{timestamp} - {event}\n")
+    except Exception as e:
+        print(f"Error logging event: {e}")
 
 # Function to make the Raspberry Pi always discoverable
 def make_discoverable():
