@@ -62,10 +62,8 @@ def start_bluetooth_server():
         uuid = "35ef4adc-c1fe-45be-b386-ac1b30e77693"
 
         bluetooth.advertise_service(server_sock, "rpi", service_id=uuid,
-                            service_classes=[uuid, bluetooth.SERIAL_PORT_CLASS],
-                            profiles=[bluetooth.SERIAL_PORT_PROFILE],
-                            # protocols=[bluetooth.OBEX_UUID]
-                            )
+                                service_classes=[uuid, bluetooth.SERIAL_PORT_CLASS],
+                                profiles=[bluetooth.SERIAL_PORT_PROFILE])
 
         while True:
             try:
