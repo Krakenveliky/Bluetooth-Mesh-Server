@@ -48,7 +48,7 @@ def start_bluetooth_server():
 
     try:
         # Ensure the Raspberry Pi is discoverable
-        # make_discoverable()
+        make_discoverable()
 
         # Log that the server has started
         log_event("Bluetooth server started. Waiting for connections...")
