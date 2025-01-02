@@ -115,6 +115,8 @@ async def run(loop):
     await asyncio.sleep(5)
     await server.stop()
 
+def start():
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run(loop))
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(run(loop))
+
