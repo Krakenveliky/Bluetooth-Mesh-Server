@@ -72,7 +72,7 @@ else:
 def read_request(characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
     log_event(f"Reading {characteristic.value}")
     # If the value is "shutdown", set restart trigger
-    if characteristic.value == b"shutdown":
+    if characteristic.value == b'shutdown\r\n':
         log_event("Shutdown command received")
         restart_trigger.set()
     return characteristic.value
@@ -125,7 +125,7 @@ async def run(loop):
                     await server.start()
                     log_event("Advertising")
                     restart_trigger.clear()
-                    
+
                 if trigger.is_set():
                     log_event("Trigger received, updating characteristic")
                     server.get_characteristic(my_char_uuid)
