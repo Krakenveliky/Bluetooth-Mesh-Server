@@ -18,14 +18,9 @@ def log_event(event):
 
 # Function to make the Raspberry Pi always discoverable
 def make_discoverable():
-    """
-    Ensures the Bluetooth device (hci0) is set to discoverable and pairable mode.
-    This allows other devices to find and connect to the Raspberry Pi.
-    """
     try:
         # Enable discoverable and pairable mode using hciconfig
         os.system("sudo hciconfig hci0 piscan")
-        os.system("123")
         log_event("Bluetooth set to discoverable mode.")
         print("Bluetooth is discoverable.")
         
@@ -45,44 +40,34 @@ def make_discoverable():
 
 # Function to start the Bluetooth server
 def start_bluetooth_server():
-    """
-    Starts a Bluetooth RFCOMM server on the Raspberry Pi.
-    The server listens for incoming connections and allows communication with connected devices.
-    """
-    # Create a Bluetooth socket
-    server_socket = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+    
+    server_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+    server_sock.bind(("", bluetooth.PORT_ANY))
+    server_sock.listen(1)
+
 
     try:
         # Ensure the Raspberry Pi is discoverable
         make_discoverable()
 
-        # Bind the socket to any available Bluetooth adapter and port
-        server_socket.bind(("", bluetooth.PORT_ANY))
-        server_socket.listen(1)
-
         # Log that the server has started
         log_event("Bluetooth server started. Waiting for connections...")
         print("Bluetooth server started. Waiting for connections...")
 
-        while True:
-            try:
-                # Make the server discoverable to clients via SDP (Service Discovery Protocol)
-                bluetooth.advertise_service(
-                    server_socket,
-                    "rpi",  # Server name
-                    service_classes=[bluetooth.SERIAL_PORT_CLASS],  # Class for serial port communication
-                    profiles=[bluetooth.SERIAL_PORT_PROFILE]        # Profile for serial port communication
-                )
-                break
-            except bluetooth.BluetoothError as e:
-                log_event(f"Server error: no advertisable device, retrying in 5 seconds...")
-                print("Server error: no advertisable device, retrying in 5 seconds...")
-                time.sleep(5)
+        port = server_sock.getsockname()[1]
+
+        uuid = "35ef4adc-c1fe-45be-b386-ac1b30e77693"
+
+        bluetooth.advertise_service(server_sock, "SampleServer", service_id=uuid,
+                            service_classes=[uuid, bluetooth.SERIAL_PORT_CLASS],
+                            profiles=[bluetooth.SERIAL_PORT_PROFILE],
+                            # protocols=[bluetooth.OBEX_UUID]
+                            )
 
         while True:
             try:
                 # Wait for a client to connect
-                client_socket, client_info = server_socket.accept()
+                client_socket, client_info = server_sock.accept()
                 log_event(f"Connected to {client_info}")
                 print(f"Connected to {client_info}")
 
@@ -111,7 +96,7 @@ def start_bluetooth_server():
 
     finally:
         # Clean up the server socket when the program ends
-        server_socket.close()
+        server_sock.close()
         log_event("Bluetooth server shut down.")
         print("Bluetooth server shut down.")
 
