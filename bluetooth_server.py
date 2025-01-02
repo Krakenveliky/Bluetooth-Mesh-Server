@@ -63,8 +63,18 @@ else:
     trigger = asyncio.Event()
 
 
+restart_trigger: Union[asyncio.Event, threading.Event]
+if sys.platform in ["darwin", "win32"]:
+    restart_trigger = threading.Event()
+else:
+    restart_trigger = asyncio.Event()
+
 def read_request(characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
     log_event(f"Reading {characteristic.value}")
+    # If the value is "shutdown", set restart trigger
+    if characteristic.value == b"shutdown":
+        log_event("Shutdown command received")
+        restart_trigger.set()
     return characteristic.value
 
 
@@ -85,7 +95,7 @@ async def run(loop):
         server.read_request_func = read_request
         server.write_request_func = write_request
 
-     # Add Service
+        # Add Service
         my_service_uuid = "A07498CA-AD5B-474E-940D-16F1FBE7E8CD"
         await server.add_new_service(my_service_uuid)
 
@@ -104,23 +114,36 @@ async def run(loop):
         log_event(server.get_characteristic(my_char_uuid))
         await server.start()
         log_event("Advertising")
-        if trigger.__module__ == "threading":
-            trigger.wait()
-        else:
-            await trigger.wait()
-
-        await asyncio.sleep(2)
-        log_event("Updating")
-        server.get_characteristic(my_char_uuid)
-        server.update_value(my_service_uuid, "51FF12BB-3ED8-46E5-B4F9-D64E2FEC021B")
-        await asyncio.sleep(5)
+        
+        # Keep server running until explicitly stopped
+        while True:
+            try:
+                if restart_trigger.is_set():
+                    log_event("Disconnecting server...")
+                    await server.stop()
+                    log_event("Restarting server...")
+                    await server.start()
+                    log_event("Advertising")
+                    restart_trigger.clear()
+                    
+                if trigger.is_set():
+                    log_event("Trigger received, updating characteristic")
+                    server.get_characteristic(my_char_uuid)
+                    server.update_value(my_service_uuid, my_char_uuid)
+                    trigger.clear()
+                await asyncio.sleep(1)  # Small sleep to prevent CPU overload
+            except asyncio.CancelledError:
+                break
+            
         await server.stop()
-    except(Exception) as e:
+    except Exception as e:
         log_event(f"Error: {e}")
         print(f"Error: {e}")
 
 def start():
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run(loop))
-
+    try:
+        loop.run_until_complete(run(loop))
+    except KeyboardInterrupt:
+        log_event("Server stopped by user")
 
