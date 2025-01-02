@@ -80,7 +80,7 @@ def read_request(characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray
 
 def write_request(characteristic: BlessGATTCharacteristic, value: Any, **kwargs):
     characteristic.value = value
-    log_event(f"Char value set to {characteristic.value}")
+    log_event(f"Char value is set to {characteristic.value}")
     if characteristic.value == b"\x0f":
         log_event("NICE")
         trigger.set()
@@ -90,7 +90,7 @@ async def run(loop):
     try:    
         trigger.clear()
         # Instantiate the server
-        my_service_name = "Filipovo RPIServer"
+        my_service_name = "Test Service"
         server = BlessServer(name=my_service_name, loop=loop)
         server.read_request_func = read_request
         server.write_request_func = write_request
