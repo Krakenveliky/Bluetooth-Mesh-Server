@@ -33,27 +33,6 @@ def log_event(event):
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             f.write(f"{timestamp} - {event}\n")
 
-# Function to make the Raspberry Pi always discoverable
-def make_discoverable():
-    try:
-        # Enable discoverable and pairable mode using hciconfig
-        os.system("sudo hciconfig hci0 piscan")
-        log_event("Bluetooth set to discoverable mode.")
-        print("Bluetooth is discoverable.")
-        
-        # Verify if the device is discoverable
-        result = os.popen("sudo hciconfig hci0").read()
-        log_event(f"hciconfig output: {result}")
-        print(f"hciconfig output: {result}")
-        if "UP RUNNING PSCAN" in result:
-            log_event("Bluetooth device is discoverable.")
-            print("Bluetooth device is discoverable.")
-        else:
-            raise Exception("Bluetooth device is not discoverable.")
-    except Exception as e:
-        # Log any errors if the command fails
-        log_event(f"Failed to set Bluetooth to discoverable: {e}")
-        print(f"Error setting discoverable: {e}")
 
 # Function to start the Bluetooth server
 trigger: Union[asyncio.Event, threading.Event]
