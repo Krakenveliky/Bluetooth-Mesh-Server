@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 from bumble.device import Device, AdvertisingData, Connection
 from bumble.core import ProtocolError
+from bumble.transport import open_transport_or_link
 
 LOG_FILE = "log.txt"
 
@@ -32,7 +33,15 @@ class BluetoothServer:
         Initialize the Bluetooth device.
         """
         try:
-            self.device = Device(transport=self.transport)
+            # Open transport
+            host, controller_source, controller_sink = open_transport_or_link(self.transport)
+
+            # Create Device without the non-existent 'transport' parameter
+            self.device = Device(
+                host=host,
+                controller_source=controller_source,
+                controller_sink=controller_sink
+            )
             self.device.name = self.device_name
         except Exception as e:
             log_event(f"Failed to initialize device: {e}")
