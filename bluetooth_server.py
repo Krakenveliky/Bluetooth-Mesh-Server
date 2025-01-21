@@ -72,6 +72,7 @@ async def run(loop):
         server = BlessServer(name=my_service_name, loop=loop)
         server.read_request_func = read_request
         server.write_request_func = write_request
+        server.read_request_timeout = 3600
 
         # Add Service
         my_service_uuid = "A07498CA-AD5B-474E-940D-16F1FBE7E8CD"
