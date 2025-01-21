@@ -50,7 +50,7 @@ else:
 
 def read_request(characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
     log_event(f"Reading {characteristic.value}")
-    # If the value is "shutdown", set restart trigger
+    # If the value is "shutdown", set restart triggerr
     if characteristic.value == b'shutdown\r\n':
         log_event("Shutdown command received")
         restart_trigger.set()
