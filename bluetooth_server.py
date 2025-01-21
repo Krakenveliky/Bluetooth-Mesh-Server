@@ -1,129 +1,86 @@
-import sys
-import logging
-import asyncio
-import threading
 import os
-from datetime import datetime
-
-from typing import Any, Union
-
-from bless import (  # type: ignore
-    BlessServer,
-    BlessGATTCharacteristic,
-    GATTCharacteristicProperties,
-    GATTAttributePermissions,
-)
-
-# Path to the log file
-LOG_FILE = "log.txt"
-
-# Function to log events to a file
-def log_event(event):
-    """
-    Logs events with timestamps to a log file.
-    :param event: The event description to log.
-    """
-    try:
-        with open(LOG_FILE, "a") as f:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            f.write(f"{timestamp} - {event}\n")
-    except FileNotFoundError:
-        os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
-        with open(LOG_FILE, "a") as f:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            f.write(f"{timestamp} - {event}\n")
+from bumble.device import Device, AdvertisingData, Connection
+from bumble.core import ProtocolError
+from boot_logger import log_message
 
 
-# Function to start the Bluetooth server
-trigger: Union[asyncio.Event, threading.Event]
-if sys.platform in ["darwin", "win32"]:
-    trigger = threading.Event()
-else:
-    trigger = asyncio.Event()
+class BluetoothServer:
+    def __init__(self, device_name: str, transport: str):
+        self.device_name = device_name
+        self.transport = transport
+        self.device = None
 
+    async def setup_device(self):
+        """
+        Initialize the Bluetooth device.
+        """
+        log_message()
+        try:
+            self.device = await Device.create(transport=self.transport)
+            self.device.name = self.device_name
+        except Exception as e:
+            log_message(f"Failed to initialize device: {e}")
+            raise
 
-restart_trigger: Union[asyncio.Event, threading.Event]
-if sys.platform in ["darwin", "win32"]:
-    restart_trigger = threading.Event()
-else:
-    restart_trigger = asyncio.Event()
+    async def start_advertising(self):
+        """
+        Start advertising the Bluetooth service.
+        """
+        try:
+            advertisement = AdvertisingData(
+                local_name=self.device_name,
+                flags=AdvertisingData.Flag.BR_EDR_NOT_SUPPORTED
+            )
+            await self.device.advertise(advertisement)
+            log_message("Started advertising")
+        except Exception as e:
+            log_message(f"Advertising failed: {e}")
+            raise
 
-def read_request(characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
-    log_event(f"Reading {characteristic.value}")
-    # If the value is "shutdown", set restart triggerr
-    if characteristic.value == b'shutdown\r\n':
-        log_event("Shutdown command received")
-        restart_trigger.set()
-    return characteristic.value
+    async def handle_connection(self, connection: Connection):
+        try:
+            log_message(f"Connection established with {connection.peer_address}")
+            async for data in connection.read():
+                log_message(f"Received: {data}")
+                await connection.write(data)  # Echo back data
+        except ProtocolError as e:
+            log_message(f"Protocol error: {e}")
+        except Exception as e:
+            log_message(f"Unexpected error: {e}")
+        finally:
+            log_message(f"Connection with {connection.peer_address} closed")
 
+    async def run(self):
+        """
+        Run the Bluetooth server.
+        """
+        await self.setup_device()
+        await self.start_advertising()
 
-def write_request(characteristic: BlessGATTCharacteristic, value: Any, **kwargs):
-    characteristic.value = value
-    log_event(f"Char value is set to {characteristic.value}")
-    
+        try:
+            log_message("Waiting for connections...")
+            async for connection in self.device.accept_connections():
+                await self.handle_connection(connection)
+        except Exception as e:
+            log_message(f"Server error: {e}")
+        finally:
+            if self.device:
+                await self.device.stop()
 
-
-
-async def run(loop):
-    try:    
-        trigger.clear()
-        # Instantiate the server
-        my_service_name = "Bluetooth-Mesh-Server"
-        server = BlessServer(name=my_service_name, loop=loop)
-        server.read_request_func = read_request
-        server.write_request_func = write_request
-
-        # Add Service
-        my_service_uuid = "A07498CA-AD5B-474E-940D-16F1FBE7E8CD"
-        await server.add_new_service(my_service_uuid)
-
-        # Add a Characteristic to the service
-        my_char_uuid = "51FF12BB-3ED8-46E5-B4F9-D64E2FEC021B"
-        char_flags = (
-            GATTCharacteristicProperties.read
-            | GATTCharacteristicProperties.write
-            | GATTCharacteristicProperties.indicate
-        )
-        permissions = GATTAttributePermissions.readable | GATTAttributePermissions.writeable
-        await server.add_new_characteristic(
-            my_service_uuid, my_char_uuid, char_flags, None, permissions
-        )
-
-        await server.start()
-        log_event("Advertising")
-        trigger.set()
-        
-        # Keep server running until explicitly stopped
-        while True:
-            try:
-                if restart_trigger.is_set():
-                    log_event("Disconnecting server...")
-                    await server.stop()
-                    log_event("Restarting server...")
-                    await server.start()
-                    log_event("Advertising")
-                    restart_trigger.clear()
-
-                if trigger.is_set():
-                    log_event("Trigger received, updating characteristic")
-                    server.get_characteristic(my_char_uuid)
-                    server.update_value(my_service_uuid, my_char_uuid)
-                    trigger.clear()
-                await asyncio.sleep(1)  # Small sleep to prevent CPU overload :)
-            except asyncio.CancelledError:
-                log_event("Test ")
-                break 
-                
-            
-        await server.stop()
-    except Exception as e:
-        log_event(f"Error: {e}")
-        print(f"Error: {e}")
 
 def start():
-    loop = asyncio.get_event_loop()
-    try:
-        loop.run_until_complete(run(loop))
-    except KeyboardInterrupt:
-        log_event("Server stopped by user")
+    """
+    Entry point for the Bluetooth server.
+    """
+    from asyncio import run
 
+    DEVICE_NAME = "Bluetooth Server"
+    TRANSPORT = "bluez" 
+
+    server = BluetoothServer(DEVICE_NAME, TRANSPORT)
+    try:
+        run(server.run())
+    except KeyboardInterrupt:
+        log_message("Server stopped by user")
+    except Exception as e:
+        log_message(f"Unhandled exception: {e}")
