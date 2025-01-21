@@ -38,46 +38,19 @@ def log_event(event):
             f.write(f"{timestamp} - {event}\n")
 
 SDP_SERVICE_RECORDS = {
-    0x00010001: [
+    0x10001: [
         ServiceAttribute(
-            SDP_SERVICE_RECORD_HANDLE_ATTRIBUTE_ID,
-            DataElement.unsigned_integer_32(0x00010001),
+            0x00000001,  # Service Record Handle
+            DataElement.unsigned_integer_32(0x10001),
         ),
         ServiceAttribute(
-            SDP_BROWSE_GROUP_LIST_ATTRIBUTE_ID,
-            DataElement.sequence([DataElement.uuid(SDP_PUBLIC_BROWSE_ROOT)]),
-        ),
-        ServiceAttribute(
-            SDP_SERVICE_CLASS_ID_LIST_ATTRIBUTE_ID,
-            DataElement.sequence([DataElement.uuid(BT_AUDIO_SINK_SERVICE)]),
-        ),
-        ServiceAttribute(
-            SDP_PROTOCOL_DESCRIPTOR_LIST_ATTRIBUTE_ID,
+            0x00000004,  # Protocol Descriptor List
             DataElement.sequence(
                 [
                     DataElement.sequence(
                         [
                             DataElement.uuid(BT_L2CAP_PROTOCOL_ID),
                             DataElement.unsigned_integer_16(25),
-                        ]
-                    ),
-                    DataElement.sequence(
-                        [
-                            DataElement.uuid(BT_AVDTP_PROTOCOL_ID),
-                            DataElement.unsigned_integer_16(256),
-                        ]
-                    ),
-                ]
-            ),
-        ),
-        ServiceAttribute(
-            SDP_BLUETOOTH_PROFILE_DESCRIPTOR_LIST_ATTRIBUTE_ID,
-            DataElement.sequence(
-                [
-                    DataElement.sequence(
-                        [
-                            DataElement.uuid(BT_ADVANCED_AUDIO_DISTRIBUTION_SERVICE),
-                            DataElement.unsigned_integer_16(256),
                         ]
                     )
                 ]
@@ -113,7 +86,7 @@ class BluetoothServer:
                 # Start being discoverable and connectable
                 await device.set_discoverable(True)
                 await device.set_connectable(True)
-                await device.start_advertising(advertisement_interval=2000, name="Server")
+                await device.start_advertising(advertisement_interval=2000, name="Filip")
                 @device.on('connection')
                 async def on_connection(connection):
                             log_event(f'<<< Connected to {connection.peer_address}')
