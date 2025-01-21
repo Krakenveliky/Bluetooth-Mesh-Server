@@ -109,7 +109,7 @@ async def run(loop):
                     server.get_characteristic(my_char_uuid)
                     server.update_value(my_service_uuid, my_char_uuid)
                     trigger.clear()
-                await asyncio.sleep(1)  # Small sleep to prevent CPU overload
+                await asyncio.sleep(1)  # Small sleep to prevent CPU overload :)
             except asyncio.CancelledError:
                 break
             
