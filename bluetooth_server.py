@@ -99,8 +99,8 @@ class BluetoothServer:
         try:
             
            
-            async with await open_transport_or_link("usb:04b4:f901") as hci_transport:
-                print('<<< connected')
+            async with await open_transport_or_link("hci0")as hci_transport:
+                log_event('<<< connected')
 
                 # Create a device
                 device = Device.from_config_file_with_hci(
@@ -115,16 +115,16 @@ class BluetoothServer:
                 await device.set_connectable(True)
                 @device.on('connection')
                 async def on_connection(connection):
-                            print(f'<<< Connected to {connection.peer_address}')
+                            log_event(f'<<< Connected to {connection.peer_address}')
 
                             # Handle incoming data
                             @connection.on('data')
                             async def on_data(data):
-                                print(f'<<< Received data: {data}')
+                                log_event(f'<<< Received data: {data}')
 
                             # Wait until the connection is terminated
                             await connection.disconnected()
-                            print(f'<<< Disconnected from {connection.peer_address}')
+                            log_event(f'<<< Disconnected from {connection.peer_address}')
                 await hci_transport.source.wait_for_termination()
         except Exception as e:
             log_event(f"Failed to initialize device: {e}")
