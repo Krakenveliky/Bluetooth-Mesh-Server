@@ -3,6 +3,22 @@ from datetime import datetime
 from bumble.device import Device, AdvertisingData, Connection
 from bumble.core import ProtocolError
 from bumble.transport import open_transport_or_link
+from bumble.sdp import (
+    DataElement,
+    ServiceAttribute,
+    SDP_PUBLIC_BROWSE_ROOT,
+    SDP_BROWSE_GROUP_LIST_ATTRIBUTE_ID,
+    SDP_SERVICE_RECORD_HANDLE_ATTRIBUTE_ID,
+    SDP_SERVICE_CLASS_ID_LIST_ATTRIBUTE_ID,
+    SDP_PROTOCOL_DESCRIPTOR_LIST_ATTRIBUTE_ID,
+    SDP_BLUETOOTH_PROFILE_DESCRIPTOR_LIST_ATTRIBUTE_ID,
+)
+from bumble.core import (
+    BT_AUDIO_SINK_SERVICE,
+    BT_L2CAP_PROTOCOL_ID,
+    BT_AVDTP_PROTOCOL_ID,
+    BT_ADVANCED_AUDIO_DISTRIBUTION_SERVICE,
+)
 
 LOG_FILE = "log.txt"
 
@@ -21,6 +37,54 @@ def log_event(event):
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             f.write(f"{timestamp} - {event}\n")
 
+SDP_SERVICE_RECORDS = {
+    0x00010001: [
+        ServiceAttribute(
+            SDP_SERVICE_RECORD_HANDLE_ATTRIBUTE_ID,
+            DataElement.unsigned_integer_32(0x00010001),
+        ),
+        ServiceAttribute(
+            SDP_BROWSE_GROUP_LIST_ATTRIBUTE_ID,
+            DataElement.sequence([DataElement.uuid(SDP_PUBLIC_BROWSE_ROOT)]),
+        ),
+        ServiceAttribute(
+            SDP_SERVICE_CLASS_ID_LIST_ATTRIBUTE_ID,
+            DataElement.sequence([DataElement.uuid(BT_AUDIO_SINK_SERVICE)]),
+        ),
+        ServiceAttribute(
+            SDP_PROTOCOL_DESCRIPTOR_LIST_ATTRIBUTE_ID,
+            DataElement.sequence(
+                [
+                    DataElement.sequence(
+                        [
+                            DataElement.uuid(BT_L2CAP_PROTOCOL_ID),
+                            DataElement.unsigned_integer_16(25),
+                        ]
+                    ),
+                    DataElement.sequence(
+                        [
+                            DataElement.uuid(BT_AVDTP_PROTOCOL_ID),
+                            DataElement.unsigned_integer_16(256),
+                        ]
+                    ),
+                ]
+            ),
+        ),
+        ServiceAttribute(
+            SDP_BLUETOOTH_PROFILE_DESCRIPTOR_LIST_ATTRIBUTE_ID,
+            DataElement.sequence(
+                [
+                    DataElement.sequence(
+                        [
+                            DataElement.uuid(BT_ADVANCED_AUDIO_DISTRIBUTION_SERVICE),
+                            DataElement.unsigned_integer_16(256),
+                        ]
+                    )
+                ]
+            ),
+        ),
+    ]
+}
 
 class BluetoothServer:
     def __init__(self, device_name: str, transport: str):
@@ -33,66 +97,50 @@ class BluetoothServer:
         Initialize the Bluetooth device.
         """
         try:
-            # Open transport
-            host, controller_source, controller_sink = await open_transport_or_link(self.transport)
+            
+           
+            async with await open_transport_or_link("usb:04b4:f901") as hci_transport:
+                print('<<< connected')
 
-            # Create Device without the non-existent 'transport' parameter
-            self.device = Device(
-                host=host,
-                controller_source=controller_source,
-                controller_sink=controller_sink
-            )
-            self.device.name = self.device_name
+                # Create a device
+                device = Device.from_config_file_with_hci(
+                    "config.json", hci_transport.source, hci_transport.sink
+                )
+                device.classic_enabled = True
+                device.sdp_service_records = SDP_SERVICE_RECORDS
+                await device.power_on()
+
+                # Start being discoverable and connectable
+                await device.set_discoverable(True)
+                await device.set_connectable(True)
+                @device.on('connection')
+                async def on_connection(connection):
+                            print(f'<<< Connected to {connection.peer_address}')
+
+                            # Handle incoming data
+                            @connection.on('data')
+                            async def on_data(data):
+                                print(f'<<< Received data: {data}')
+
+                            # Wait until the connection is terminated
+                            await connection.disconnected()
+                            print(f'<<< Disconnected from {connection.peer_address}')
+                await hci_transport.source.wait_for_termination()
         except Exception as e:
             log_event(f"Failed to initialize device: {e}")
             raise
 
-    async def start_advertising(self):
-        """
-        Start advertising the Bluetooth service.
-        """
-        try:
-            advertisement = AdvertisingData(
-                local_name=self.device_name,
-                flags=AdvertisingData.Flag.BR_EDR_NOT_SUPPORTED
-            )
-            await self.device.advertise(advertisement)
-            log_event("Started advertising")
-        except Exception as e:
-            log_event(f"Advertising failed: {e}")
-            raise
+   
 
-    async def handle_connection(self, connection: Connection):
-        try:
-            log_event(f"Connection established with {connection.peer_address}")
-            async for data in connection.read():
-                log_event(f"Received: {data}")
-                await connection.write(data)  # Echo back data
-        except ProtocolError as e:
-            log_event(f"Protocol error: {e}")
-        except Exception as e:
-            log_event(f"Unexpected error: {e}")
-        finally:
-            log_event(f"Connection with {connection.peer_address} closed")
+    
 
     async def run(self):
         """
         Run the Bluetooth server.
         """
-        await self.setup_device()
-        await self.start_advertising()
+        await self.setup_device()      
 
-        try:
-            log_event("Waiting for connections...")
-            async for connection in self.device.accept_connections():
-                await self.handle_connection(connection)
-        except Exception as e:
-            log_event(f"Server error: {e}")
-        finally:
-            if self.device:
-                await self.device.stop()
-
-
+       
 def start():
     """
     Entry point for the Bluetooth server.
