@@ -60,9 +60,8 @@ def read_request(characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray
 def write_request(characteristic: BlessGATTCharacteristic, value: Any, **kwargs):
     characteristic.value = value
     log_event(f"Char value is set to {characteristic.value}")
-    if characteristic.value == b"\x0f":
-        log_event("NICE")
-        trigger.set()
+    
+
 
 
 async def run(loop):
@@ -92,6 +91,7 @@ async def run(loop):
 
         await server.start()
         log_event("Advertising")
+        trigger.set()
         
         # Keep server running until explicitly stopped
         while True:
@@ -111,7 +111,9 @@ async def run(loop):
                     trigger.clear()
                 await asyncio.sleep(1)  # Small sleep to prevent CPU overload :)
             except asyncio.CancelledError:
-                break
+                log_event("Test ")
+                break 
+                
             
         await server.stop()
     except Exception as e:
