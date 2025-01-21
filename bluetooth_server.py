@@ -69,7 +69,7 @@ async def run(loop):
     try:    
         trigger.clear()
         # Instantiate the server
-        my_service_name = "Test Service"
+        my_service_name = "Bluetooth-Mesh-Server"
         server = BlessServer(name=my_service_name, loop=loop)
         server.read_request_func = read_request
         server.write_request_func = write_request
