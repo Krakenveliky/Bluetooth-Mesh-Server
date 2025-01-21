@@ -99,7 +99,7 @@ class BluetoothServer:
         try:
             
            
-            async with await open_transport_or_link("serial:/dev/serial0")as hci_transport:
+            async with await open_transport_or_link("serial:/dev/ttyAMA10")as hci_transport:
                 log_event('<<< connected')
 
                 # Create a device
