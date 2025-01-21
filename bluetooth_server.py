@@ -34,7 +34,7 @@ class BluetoothServer:
         """
         try:
             # Open transport
-            host, controller_source, controller_sink = open_transport_or_link(self.transport)
+            host, controller_source, controller_sink = await open_transport_or_link(self.transport)
 
             # Create Device without the non-existent 'transport' parameter
             self.device = Device(
