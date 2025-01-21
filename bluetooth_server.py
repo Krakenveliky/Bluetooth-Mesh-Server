@@ -82,13 +82,13 @@ class BluetoothServer:
                 )
                 device.classic_enabled = True
                 device.sdp_service_records = SDP_SERVICE_RECORDS
-              # log_event('<<< Powering on device')
-               # await device.power_on()
+                #log_event('<<< Powering on device')
+                #await device.power_on()
 
-                # Set the device to be discoverable and connectable
+                #Set the device to be discoverable and connectable
                 log_event('<<< Setting device to discoverable and connectable')
-                await device.set_discoverable(True)
-                await device.set_connectable(True)
+                #await device.set_discoverable(True)
+                #await device.set_connectable(True)
 
                 # Set up advertising data and start advertising
                 advertisement = AdvertisingData()
