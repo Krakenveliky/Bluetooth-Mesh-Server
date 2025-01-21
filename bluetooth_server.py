@@ -73,7 +73,7 @@ class BluetoothServer:
             
            
             async with await open_transport_or_link("serial:/dev/ttyAMA10")as hci_transport:
-                log_event('<<< connected')
+                log_event('<<< starting')
 
                 # Create a device
                 device = Device.from_config_file_with_hci(
@@ -86,7 +86,11 @@ class BluetoothServer:
                 # Start being discoverable and connectable
                 await device.set_discoverable(True)
                 await device.set_connectable(True)
-                await device.start_advertising(advertisement_interval=2000, name="Filip")
+                advertisement = AdvertisingData()
+                advertisement.set_local_name(self.device_name)
+                advertisement.add_service_uuid(BT_L2CAP_PROTOCOL_ID)
+                await device.start_advertising(advertisement)
+                log_event('<<< Device is now advertising')
                 @device.on('connection')
                 async def on_connection(connection):
                             log_event(f'<<< Connected to {connection.peer_address}')
