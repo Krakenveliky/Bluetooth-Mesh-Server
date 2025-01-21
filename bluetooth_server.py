@@ -32,7 +32,7 @@ class BluetoothServer:
         Initialize the Bluetooth device.
         """
         try:
-            self.device = await Device.create(transport=self.transport)
+            self.device = Device(transport=self.transport)
             self.device.name = self.device_name
         except Exception as e:
             log_event(f"Failed to initialize device: {e}")
