@@ -113,6 +113,7 @@ class BluetoothServer:
                 # Start being discoverable and connectable
                 await device.set_discoverable(True)
                 await device.set_connectable(True)
+                await device.start_advertising(advertisement_interval=100, name="Bumble")
                 @device.on('connection')
                 async def on_connection(connection):
                             log_event(f'<<< Connected to {connection.peer_address}')
