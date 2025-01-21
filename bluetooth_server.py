@@ -91,11 +91,10 @@ class BluetoothServer:
                 #await device.set_connectable(True)
 
                 # Set up advertising data and start advertising
-                advertisement = AdvertisingData()
-                advertisement.set_local_name(self.device_name)
-                advertisement.add_service_uuid(BT_L2CAP_PROTOCOL_ID)
                 log_event('<<< Starting advertising')
-                await device.start_advertising(advertisement)
+                await device.start_advertising()
+                
+               
 
                 log_event('<<< Device is now advertising')
                 @device.on('connection')
@@ -123,7 +122,7 @@ class BluetoothServer:
         """
         Run the Bluetooth server.
         """
-        await self.setup_device()      
+        await self.setup_device()     
 
        
 def start():
