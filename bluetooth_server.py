@@ -90,7 +90,6 @@ async def run(loop):
             my_service_uuid, my_char_uuid, char_flags, None, permissions
         )
 
-        log_event(server.get_characteristic(my_char_uuid))
         await server.start()
         log_event("Advertising")
         
