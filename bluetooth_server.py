@@ -1,27 +1,23 @@
+import sys
+import logging
+import asyncio
+import threading
 import os
 from datetime import datetime
-from bumble.device import Device, AdvertisingData, Connection
-from bumble.core import ProtocolError
-from bumble.transport import open_transport_or_link
-from bumble.sdp import (
-    DataElement,
-    ServiceAttribute,
-    SDP_PUBLIC_BROWSE_ROOT,
-    SDP_BROWSE_GROUP_LIST_ATTRIBUTE_ID,
-    SDP_SERVICE_RECORD_HANDLE_ATTRIBUTE_ID,
-    SDP_SERVICE_CLASS_ID_LIST_ATTRIBUTE_ID,
-    SDP_PROTOCOL_DESCRIPTOR_LIST_ATTRIBUTE_ID,
-    SDP_BLUETOOTH_PROFILE_DESCRIPTOR_LIST_ATTRIBUTE_ID,
-)
-from bumble.core import (
-    BT_AUDIO_SINK_SERVICE,
-    BT_L2CAP_PROTOCOL_ID,
-    BT_AVDTP_PROTOCOL_ID,
-    BT_ADVANCED_AUDIO_DISTRIBUTION_SERVICE,
+
+from typing import Any, Union
+
+from bless import (  # type: ignore
+    BlessServer,
+    BlessGATTCharacteristic,
+    GATTCharacteristicProperties,
+    GATTAttributePermissions,
 )
 
+# Path to the log file
 LOG_FILE = "log.txt"
 
+# Function to log events to a file
 def log_event(event):
     """
     Logs events with timestamps to a log file.
@@ -37,107 +33,94 @@ def log_event(event):
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             f.write(f"{timestamp} - {event}\n")
 
-SDP_SERVICE_RECORDS = {
-    0x10001: [
-        ServiceAttribute(
-            0x00000001,  # Service Record Handle
-            DataElement.unsigned_integer_32(0x10001),
-        ),
-        ServiceAttribute(
-            0x00000004,  # Protocol Descriptor List
-            DataElement.sequence(
-                [
-                    DataElement.sequence(
-                        [
-                            DataElement.uuid(BT_L2CAP_PROTOCOL_ID),
-                            DataElement.unsigned_integer_16(25),
-                        ]
-                    )
-                ]
-            ),
-        ),
-    ]
-}
 
-class BluetoothServer:
-    def __init__(self, device_name: str, transport: str):
-        self.device_name = device_name
-        self.transport = transport
-        self.device = None
+# Function to start the Bluetooth server
+trigger: Union[asyncio.Event, threading.Event]
+if sys.platform in ["darwin", "win32"]:
+    trigger = threading.Event()
+else:
+    trigger = asyncio.Event()
 
-    async def setup_device(self):
-        """
-        Initialize the Bluetooth device.
-        """
-        try:
+
+restart_trigger: Union[asyncio.Event, threading.Event]
+if sys.platform in ["darwin", "win32"]:
+    restart_trigger = threading.Event()
+else:
+    restart_trigger = asyncio.Event()
+
+def read_request(characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
+    log_event(f"Reading {characteristic.value}")
+    # If the value is "shutdown", set restart trigger
+    if characteristic.value == b'shutdown\r\n':
+        log_event("Shutdown command received")
+        restart_trigger.set()
+    return characteristic.value
+
+
+def write_request(characteristic: BlessGATTCharacteristic, value: Any, **kwargs):
+    characteristic.value = value
+    log_event(f"Char value is set to {characteristic.value}")
+    if characteristic.value == b"\x0f":
+        log_event("NICE")
+        trigger.set()
+
+
+async def run(loop):
+    try:    
+        trigger.clear()
+        # Instantiate the server
+        my_service_name = "Test Service"
+        server = BlessServer(name=my_service_name, loop=loop)
+        server.read_request_func = read_request
+        server.write_request_func = write_request
+
+        # Add Service
+        my_service_uuid = "A07498CA-AD5B-474E-940D-16F1FBE7E8CD"
+        await server.add_new_service(my_service_uuid)
+
+        # Add a Characteristic to the service
+        my_char_uuid = "51FF12BB-3ED8-46E5-B4F9-D64E2FEC021B"
+        char_flags = (
+            GATTCharacteristicProperties.read
+            | GATTCharacteristicProperties.write
+            | GATTCharacteristicProperties.indicate
+        )
+        permissions = GATTAttributePermissions.readable | GATTAttributePermissions.writeable
+        await server.add_new_characteristic(
+            my_service_uuid, my_char_uuid, char_flags, None, permissions
+        )
+
+        await server.start()
+        log_event("Advertising")
+        
+        # Keep server running until explicitly stopped
+        while True:
+            try:
+                if restart_trigger.is_set():
+                    log_event("Disconnecting server...")
+                    await server.stop()
+                    log_event("Restarting server...")
+                    await server.start()
+                    log_event("Advertising")
+                    restart_trigger.clear()
+
+                if trigger.is_set():
+                    log_event("Trigger received, updating characteristic")
+                    server.get_characteristic(my_char_uuid)
+                    server.update_value(my_service_uuid, my_char_uuid)
+                    trigger.clear()
+                await asyncio.sleep(1)  # Small sleep to prevent CPU overload
+            except asyncio.CancelledError:
+                break
             
-           
-            async with await open_transport_or_link("serial:/dev/ttyAMA10")as hci_transport:
-                log_event('<<< Transport opened')
+        await server.stop()
+    except Exception as e:
+        log_event(f"Error: {e}")
+        print(f"Error: {e}")
 
-                # Create a device from the config file
-                log_event('<<< Creating Bluetooth device')
-                device = Device.from_config_file_with_hci(
-                    "config.json", hci_transport.source, hci_transport.sink
-                )
-                device.classic_enabled = True
-                device.sdp_service_records = SDP_SERVICE_RECORDS
-                #log_event('<<< Powering on device')
-                #await device.power_on()
-
-                #Set the device to be discoverable and connectable
-                log_event('<<< Setting device to discoverable and connectable')
-                #await device.set_discoverable(True)
-                #await device.set_connectable(True)
-
-                # Set up advertising data and start advertising
-                log_event('<<< Starting advertising')
-                await device.start_advertising()
-                
-               
-
-                log_event('<<< Device is now advertising')
-                @device.on('connection')
-                async def on_connection(connection):
-                            log_event(f'<<< Connected to {connection.peer_address}')
-
-                            # Handle incoming data
-                            @connection.on('data')
-                            async def on_data(data):
-                                log_event(f'<<< Received data: {data}')
-
-                            # Wait until the connection is terminated
-                            await connection.disconnected()
-                            log_event(f'<<< Disconnected from {connection.peer_address}')
-                await hci_transport.source.wait_for_termination()
-        except Exception as e:
-            log_event(f"Failed to initialize device: {e}")
-            raise
-
-   
-
-    
-
-    async def run(self):
-        """
-        Run the Bluetooth server.
-        """
-        await self.setup_device()     
-
-       
 def start():
-    """
-    Entry point for the Bluetooth server.
-    """
-    from asyncio import run
-
-    DEVICE_NAME = "Bluetooth Server"
-    TRANSPORT = "bluez" 
-
-    server = BluetoothServer(DEVICE_NAME, TRANSPORT)
+    loop = asyncio.get_event_loop()
     try:
-        run(server.run())
+        loop.run_until_complete(run(loop))
     except KeyboardInterrupt:
         log_event("Server stopped by user")
-    except Exception as e:
-        log_event(f"Unhandled exception: {e}")
