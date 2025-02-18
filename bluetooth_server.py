@@ -9,7 +9,7 @@ async def main():
         
         log_event(d)
 
-    message = "xd xd"
+    message = "Connected to Raspberry Pi!"
     await connect_and_send_message(HM10_MAC_ADDRESS, message)
     
   
