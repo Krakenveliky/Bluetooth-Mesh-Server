@@ -4,10 +4,10 @@ from datetime import datetime
 import os
 
 async def main():
-    devices = await BleakScanner.discover()
-    for d in devices:
+    #devices = await BleakScanner.discover()
+    #for d in devices:
         
-        log_event(d)
+     #   log_event(d)
 
     message = "Connected to Raspberry Pi!"
     await connect_and_send_message(HM10_MAC_ADDRESS, message)
