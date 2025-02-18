@@ -6,7 +6,7 @@ import os
 async def main():
     devices = await BleakScanner.discover()
     for d in devices:
-        print(d)
+        log_event(d)
 
 def start():
     asyncio.run(main())
