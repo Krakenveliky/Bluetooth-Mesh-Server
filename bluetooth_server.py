@@ -9,7 +9,7 @@ async def main():
         
      #   log_event(d)
 
-    message = "Connected"
+    message = "Connected@"
     await connect_and_send_message(HM10_MAC_ADDRESS, message)
     
   
