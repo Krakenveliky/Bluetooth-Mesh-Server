@@ -38,7 +38,7 @@ def log_event(event):
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             f.write(f"{timestamp} - {event}\n")
 
-HM10_MAC_ADDRESS = "2C:CF:67:72:24:54"  
+HM10_MAC_ADDRESS = "50:F1:4A:4D:DC:E9"  
 
 
 CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
@@ -46,14 +46,14 @@ CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
 async def connect_and_send_message(mac_address, message):
 
     async with BleakClient(mac_address) as client:
-        print(f"Connected: {client.is_connected}")
+        log_event(f"Connected: {client.is_connected}")
 
         if client.is_connected:
            
             await client.write_gatt_char(CHARACTERISTIC_UUID, message.encode())
-            print(f"Message sent: {message}")
+            log_event(f"Message sent: {message}")
 
        
-        print("Disconnecting...")
+        log_event("Disconnecting...")
 
         
