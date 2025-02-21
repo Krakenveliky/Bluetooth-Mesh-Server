@@ -22,7 +22,7 @@ def start():
 # Path to the log file
 LOG_FILE = "log.txt"
 
-# Function to log events to a file
+# Function to log events to a file with timestamps
 def log_event(event):
     """
     Logs events with timestamps to a log file.
