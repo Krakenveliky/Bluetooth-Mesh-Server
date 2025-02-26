@@ -50,7 +50,7 @@ class BluetoothServer:
             self.log_event(f"Connected: {client.is_connected}")
 
             if client.is_connected:
-                await client.write_gatt_char(self.CHARACTERISTIC_UUID, message.encode())
+                await client.write_gatt_char(self.CHARACTERISTIC_UUID, message.encode(), response=False)
                 self.log_event(f"Message sent: {message}")
 
             self.log_event("Disconnecting...")
