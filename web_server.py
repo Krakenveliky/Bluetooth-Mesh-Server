@@ -15,8 +15,10 @@ class WebServer:
 
     async def accept_message(self, request: Request):
         mac_adress = request.query_params.get("mac") # mac adresa zarizeni
+        print(mac_adress)
         btn = request.query_params.get("button") # cislo buttonu ktery zmackl
         self.server.connect_and_send_message(mac_adress, btn)
+        print(btn)
         
         return {"message": "Zprava odeslana uspesne"}
 
