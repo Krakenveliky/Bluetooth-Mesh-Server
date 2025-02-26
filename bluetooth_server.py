@@ -14,9 +14,9 @@ class BluetoothServer:
     async def main(self):
         """Main entry point for Bluetooth operations"""
         # Uncomment to scan for devices
-        # devices = await BleakScanner.discover()
-        # for d in devices:
-        #     self.log_event(d)
+        devices = await BleakScanner.discover()
+        for d in devices:
+            self.log_event(d)
 
         message = "Connected@"
         await self.connect_and_send_message(self.HM10_MAC_ADDRESS, message)
