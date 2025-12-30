@@ -72,9 +72,6 @@ class BluetoothServer:
             self.log_event("Disconnecting...")
             
     def start(self):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.create_task(self.listen())
-        loop.run_forever()
+        asyncio.run(self.main())
 
 # Example usage
