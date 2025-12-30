@@ -40,7 +40,18 @@ class BluetoothServer:
                 await asyncio.sleep(0.2)
                 continue
 
-            
+            async with BleakClient(MAC) as client:
+                self.log_event("BLE listener connected")
+
+                def handle_notify(_, data):
+                    msg = data.decode(errors="ignore").strip()
+                    print("RX:", msg)
+                    self.log_event(f"RX {msg}")
+
+                await client.start_notify(self.CHARACTERISTIC_UUID, handle_notify)
+
+                while self.listening:
+                    await asyncio.sleep(0.2)
 
 
     def connect_and_send_message(self, mac_address, message):
