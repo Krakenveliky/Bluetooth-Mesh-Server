@@ -3,57 +3,78 @@ from bleak import BleakScanner, BleakClient
 from datetime import datetime
 import os
 
-async def main():
-    #devices = await BleakScanner.discover()
-    #for d in devices:
-        
-     #   log_event(d)
-
-    message = "Connected@"
-    await connect_and_send_message(HM10_MAC_ADDRESS, message)
+class BluetoothServer:
+    """A class to handle Bluetooth LE server operations"""
     
-  
+    def __init__(self):
+        self.HM10_MAC_ADDRESS = "50:F1:4A:4D:DC:E9"
+        self.CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
+        self.LOG_FILE = "log.txt"
+
+    async def main(self):
+        """Main entry point for Bluetooth operations"""
+        # Uncomment to scan for devices
+        devices = await BleakScanner.discover()
+        for d in devices:
+            self.log_event(d)
+
+        message = "Connected@"
+        await self.connect_and_send_message(self.HM10_MAC_ADDRESS, message)
+
+    def start(self):
+        """Start the Bluetooth server"""
+        asyncio.run(self.main())
+
+    def log_event(self, event):
+        """
+        Logs events with timestamps to a log file.
+        :param event: The event description to log.
+        """
+        try:
+            with open(self.LOG_FILE, "a") as f:
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                f.write(f"{timestamp} - {event}\n")
+        except FileNotFoundError:
+            os.makedirs(os.path.dirname(self.LOG_FILE), exist_ok=True)
+            with open(self.LOG_FILE, "a") as f:
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                f.write(f"{timestamp} - {event}\n")
+
     
 
-def start():
-    asyncio.run(main())
+    async def listen(self):
+        async with BleakClient(self.HM10_MAC_ADDRESS) as client:
+            self.log_event("BLE listener connected")
 
+            def handle_notify(_, data: bytearray):
+                message = data.decode(errors="ignore").strip()
+                print("RX:", message)
+                self.log_event(f"RX {message}")
 
-# Path to the log file
-LOG_FILE = "log.txt"
+            await client.start_notify(self.CHARACTERISTIC_UUID, handle_notify)
 
-# Function to log events to a file with timestamps
-def log_event(event):
-    """
-    Logs events with timestamps to a log file.
-    :param event: The event description to log.
-    """
-    try:
-        with open(LOG_FILE, "a") as f:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            f.write(f"{timestamp} - {event}\n")
-    except FileNotFoundError:
-        os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
-        with open(LOG_FILE, "a") as f:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            f.write(f"{timestamp} - {event}\n")
+            while True:
+                await asyncio.sleep(1)
 
-HM10_MAC_ADDRESS = "50:F1:4A:4D:DC:E9"  
+    async def connect_and_send_message(self, mac_address, message):
+        """
+        Connect to a Bluetooth device and send a message
+        :param mac_address: The MAC address of the target device
+        :param message: The message to send
+        """
+        async with BleakClient(mac_address) as client:
+            self.log_event(f"Connected: {client.is_connected}")
 
+            if client.is_connected:
+                await client.write_gatt_char(self.CHARACTERISTIC_UUID, message.encode(), response=False)
+                self.log_event(f"Message sent: {message}")
 
-CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
+            self.log_event("Disconnecting...")
+            
+    def start(self):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.create_task(self.listen())
+        loop.run_forever()
 
-async def connect_and_send_message(mac_address, message):
-
-    async with BleakClient(mac_address) as client:
-        log_event(f"Connected: {client.is_connected}")
-
-        if client.is_connected:
-           
-            await client.write_gatt_char(CHARACTERISTIC_UUID, message.encode())
-            log_event(f"Message sent: {message}")
-
-       
-        log_event("Disconnecting...")
-
-        
+# Example usage
