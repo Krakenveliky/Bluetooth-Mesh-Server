@@ -81,7 +81,7 @@ class BluetoothServer:
     def start(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-       # self.loop.create_task(self.listen("50:F1:4A:4D:DC:E9"))
+        self.loop.create_task(self.listen("50:F1:4A:4D:DC:E9"))
         self.loop.run_forever()
 
 
