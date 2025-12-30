@@ -12,6 +12,8 @@ class BluetoothServer:
         self.CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
         self.LOG_FILE = "log.txt"
         self.loop = None
+        self.listening = True
+
 
 
 
@@ -33,18 +35,24 @@ class BluetoothServer:
     
 
     async def listen(self, MAC):
-        async with BleakClient(MAC) as client:
-            self.log_event("BLE listener connected")
+        while True:
+            if not self.listening:
+                await asyncio.sleep(0.2)
+                continue
 
-            def handle_notify(_, data: bytearray):
-                message = data.decode(errors="ignore").strip()
-                print("RX:", message)
-                self.log_event(f"RX {message}")
+            async with BleakClient(MAC) as client:
+                self.log_event("BLE listener connected")
 
-            await client.start_notify(self.CHARACTERISTIC_UUID, handle_notify)
+                def handle_notify(_, data):
+                    msg = data.decode(errors="ignore").strip()
+                    print("RX:", msg)
+                    self.log_event(f"RX {msg}")
 
-            while True:
-                await asyncio.sleep(1)
+                await client.start_notify(self.CHARACTERISTIC_UUID, handle_notify)
+
+                while self.listening:
+                    await asyncio.sleep(0.2)
+
 
     def connect_and_send_message(self, mac_address, message):
         asyncio.run_coroutine_threadsafe(
@@ -53,6 +61,9 @@ class BluetoothServer:
         )
 
     async def _connect_and_send(self, mac_address, message):
+        self.listening = False
+        await asyncio.sleep(0.5)
+
         async with BleakClient(mac_address) as client:
             await client.connect()
             await client.write_gatt_char(
@@ -61,6 +72,10 @@ class BluetoothServer:
                 response=False
             )
             await client.disconnect()
+
+        await asyncio.sleep(0.5)
+        self.listening = True
+
 
             
     def start(self):
