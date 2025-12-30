@@ -14,6 +14,7 @@ class WebServer:
         self.router.add_api_route("/send", self.accept_message, methods=["GET"])
         self.app.include_router(self.router)
         self.shutdown_event = threading.Event()
+        self.LOG_FILE = "log.txt"
     
     def log_event(self, event):
         """
