@@ -1,80 +1,93 @@
 import asyncio
-from bleak import BleakScanner, BleakClient
+from bleak import BleakClient
 from datetime import datetime
 import os
 
 class BluetoothServer:
-    """A class to handle Bluetooth LE server operations"""
-    
+    """Bluetooth LE server with SEQUENTIAL BLE switching (HM-10 safe)"""
+
     def __init__(self):
+        # Arduino A – POSÍLÁ (kabely → log)
         self.HM10_MAC_ADDRESS = "50:F1:4A:4D:DC:E9"
+
+        # UART charakteristika HM-10 (STEJNÁ PRO VŠECHNA)
         self.CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
+
         self.LOG_FILE = "log.txt"
 
-    async def main(self):
-        """Main entry point for Bluetooth operations"""
-        # Uncomment to scan for devices
-        devices = await BleakScanner.discover()
-        for d in devices:
-            self.log_event(d)
+        # stav listeneru
+        self.listening = True
+        self.listener_client = None
+        self.loop = None
 
-        message = "Connected@"
-        await self.connect_and_send_message(self.HM10_MAC_ADDRESS, message)
-
-    def start(self):
-        """Start the Bluetooth server"""
-        asyncio.run(self.main())
-
+    # --------------------------------------------------
+    # LOG
+    # --------------------------------------------------
     def log_event(self, event):
-        """
-        Logs events with timestamps to a log file.
-        :param event: The event description to log.
-        """
-        try:
-            with open(self.LOG_FILE, "a") as f:
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                f.write(f"{timestamp} - {event}\n")
-        except FileNotFoundError:
-            os.makedirs(os.path.dirname(self.LOG_FILE), exist_ok=True)
-            with open(self.LOG_FILE, "a") as f:
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                f.write(f"{timestamp} - {event}\n")
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with open(self.LOG_FILE, "a") as f:
+            f.write(f"{timestamp} - {event}\n")
 
-    
-
+    # --------------------------------------------------
+    # LISTEN – Arduino A → LOG
+    # --------------------------------------------------
     async def listen(self):
-        async with BleakClient(self.HM10_MAC_ADDRESS) as client:
-            self.log_event("BLE listener connected")
+        self.listening = True
+        self.listener_client = BleakClient(self.HM10_MAC_ADDRESS)
 
-            def handle_notify(_, data: bytearray):
-                message = data.decode(errors="ignore").strip()
-                print("RX:", message)
-                self.log_event(f"RX {message}")
+        await self.listener_client.connect()
+        self.log_event("BLE listener connected (Arduino A)")
+        print("Listening Arduino A")
 
-            await client.start_notify(self.CHARACTERISTIC_UUID, handle_notify)
+        def handle_notify(_, data: bytearray):
+            msg = data.decode(errors="ignore").strip()
+            print("RX:", msg)
+            self.log_event(f"RX {msg}")
 
-            while True:
-                await asyncio.sleep(1)
+        await self.listener_client.start_notify(
+            self.CHARACTERISTIC_UUID,
+            handle_notify
+        )
 
+        while self.listening:
+            await asyncio.sleep(0.2)
+
+        await self.listener_client.disconnect()
+        self.log_event("BLE listener disconnected")
+
+    # --------------------------------------------------
+    # SEND – Arduino B ← MOBIL
+    # --------------------------------------------------
     async def connect_and_send_message(self, mac_address, message):
-        """
-        Connect to a Bluetooth device and send a message
-        :param mac_address: The MAC address of the target device
-        :param message: The message to send
-        """
+
+        # 1️⃣ zastav listener
+        if self.listening:
+            self.listening = False
+            await asyncio.sleep(0.5)
+
+        # 2️⃣ pošli příkaz Arduino B
         async with BleakClient(mac_address) as client:
-            self.log_event(f"Connected: {client.is_connected}")
+            await client.connect()
+            self.log_event(f"Connected to {mac_address}")
 
-            if client.is_connected:
-                await client.write_gatt_char(self.CHARACTERISTIC_UUID, message.encode(), response=False)
-                self.log_event(f"Message sent: {message}")
+            await client.write_gatt_char(
+                self.CHARACTERISTIC_UUID,
+                message.encode(),
+                response=False
+            )
 
-            self.log_event("Disconnecting...")
-            
+            self.log_event(f"Message sent: {message}")
+            await client.disconnect()
+
+        # 3️⃣ vrať se zpět k poslouchání Arduino A
+        await asyncio.sleep(0.5)
+        self.loop.create_task(self.listen())
+
+    # --------------------------------------------------
+    # START
+    # --------------------------------------------------
     def start(self):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.create_task(self.listen())
-        loop.run_forever()
-
-# Example usage
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.loop.create_task(self.listen())
+        self.loop.run_forever()
