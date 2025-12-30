@@ -3,6 +3,7 @@ from bleak import BleakScanner, BleakClient
 from datetime import datetime
 import os
 
+
 class BluetoothServer:
     """A class to handle Bluetooth LE server operations"""
     
@@ -10,6 +11,8 @@ class BluetoothServer:
         self.HM10_MAC_ADDRESS = ["50:F1:4A:4D:DC:E9", "5C:F8:21:9E:55:84"]
         self.CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
         self.LOG_FILE = "log.txt"
+        self.loop = None
+
 
 
     def log_event(self, event):
@@ -43,26 +46,28 @@ class BluetoothServer:
             while True:
                 await asyncio.sleep(1)
 
-    async def connect_and_send_message(self, mac_address, message):
-        """
-        Connect to a Bluetooth device and send a message
-        :param mac_address: The MAC address of the target device
-        :param message: The message to send
-        """
+    def connect_and_send_message(self, mac_address, message):
+        asyncio.run_coroutine_threadsafe(
+            self._connect_and_send(mac_address, message),
+            self.loop
+        )
+
+    async def _connect_and_send(self, mac_address, message):
         async with BleakClient(mac_address) as client:
-            self.log_event(f"Connected: {client.is_connected}")
+            await client.connect()
+            await client.write_gatt_char(
+                self.CHAR_UUID,
+                message.encode(),
+                response=False
+            )
+            await client.disconnect()
 
-            if client.is_connected:
-                await client.write_gatt_char(self.CHARACTERISTIC_UUID, message.encode(), response=False)
-                self.log_event(f"Message sent: {message}")
-
-            self.log_event("Disconnecting...")
             
     def start(self):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        for mac in self.HM10_MAC_ADDRESS:
-            loop.create_task(self.listen(mac))
-        loop.run_forever()
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.loop.create_task(self.listen("50:F1:4A:4D:DC:E9"))
+        self.loop.run_forever()
+
 
 # Example usage

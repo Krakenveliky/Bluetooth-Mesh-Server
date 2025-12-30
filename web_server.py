@@ -31,13 +31,13 @@ class WebServer:
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 f.write(f"{timestamp} - {event}\n")
 
-    async def accept_message(self, request: Request):
-        mac_adress = request.query_params.get("mac") # mac adresa zarizeni
-        self.log_event(mac_adress)
-        btn = request.query_params.get("button") # cislo buttonu ktery zmackl
-        await self.server.connect_and_send_message(mac_adress, btn)
-        self.log_event(btn)
-        
+    def accept_message(self, request: Request):
+        mac_adress = request.query_params.get("mac")
+        btn = request.query_params.get("button")
+
+        self.log_event(f"HTTP {mac_adress} {btn}")
+        self.server.connect_and_send_message(mac_adress, btn)
+
         return {"message": "Zprava odeslana uspesne"}
 
     def run(self, host="0.0.0.0", port=8000):

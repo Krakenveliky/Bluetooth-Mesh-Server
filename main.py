@@ -20,8 +20,4 @@ if __name__ == "__main__":
     webserver = WebServer(server)
     webserver.start_in_thread(host="127.0.0.1", port=8000)
 
-    # drž main thread při životě
-    while True:
-        pass
-
 
