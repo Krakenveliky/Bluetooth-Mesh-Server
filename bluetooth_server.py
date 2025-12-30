@@ -7,7 +7,7 @@ class BluetoothServer:
     """A class to handle Bluetooth LE server operations"""
     
     def __init__(self):
-        self.HM10_MAC_ADDRESS = "5C:F8:21:9E:55:84"
+        self.HM10_MAC_ADDRESS = "50:F1:4A:4D:DC:E9"
         self.CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
         self.LOG_FILE = "log.txt"
 
