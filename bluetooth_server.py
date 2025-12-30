@@ -13,6 +13,8 @@ class BluetoothServer:
         self.LOG_FILE = "log.txt"
         self.loop = None
         self.listening = True
+        self.listener_client = None
+
 
 
 
@@ -34,13 +36,28 @@ class BluetoothServer:
 
     
 
+ 
+
+
     async def listen(self, MAC):
         while True:
             if not self.listening:
+                # pokud jsme byli připojeni, korektně se odpoj
+                if self.listener_client:
+                    try:
+                        await self.listener_client.stop_notify(self.CHARACTERISTIC_UUID)
+                        await self.listener_client.disconnect()
+                        self.log_event("BLE listener disconnected")
+                    except Exception as e:
+                        self.log_event(f"Listener disconnect error: {e}")
+                    self.listener_client = None
+
                 await asyncio.sleep(0.2)
                 continue
 
-            async with BleakClient(MAC) as client:
+            try:
+                self.listener_client = BleakClient(MAC)
+                await self.listener_client.connect()
                 self.log_event("BLE listener connected")
 
                 def handle_notify(_, data):
@@ -48,10 +65,19 @@ class BluetoothServer:
                     print("RX:", msg)
                     self.log_event(f"RX {msg}")
 
-                await client.start_notify(self.CHARACTERISTIC_UUID, handle_notify)
+                await self.listener_client.start_notify(
+                    self.CHARACTERISTIC_UUID,
+                    handle_notify
+                )
 
+                # poslouchej, dokud je listening = True
                 while self.listening:
                     await asyncio.sleep(0.2)
+
+            except Exception as e:
+                self.log_event(f"Listener error: {e}")
+                await asyncio.sleep(1)
+
 
 
     def connect_and_send_message(self, mac_address, message):
@@ -61,20 +87,31 @@ class BluetoothServer:
         )
 
     async def _connect_and_send(self, mac_address, message):
+        self.log_event(f"SEND start {mac_address} {message}")
+
         self.listening = False
         await asyncio.sleep(0.5)
 
-        async with BleakClient(mac_address) as client:
-            await client.connect()
-            await client.write_gatt_char(
-                self.CHARACTERISTIC_UUID,
-                message.encode(),
-                response=False
-            )
-            await client.disconnect()
+        try:
+            async with BleakClient(mac_address) as client:
+                await client.connect()
+                self.log_event(f"SEND connected {mac_address}")
+
+                await client.write_gatt_char(
+                    self.CHARACTERISTIC_UUID,
+                    message.encode(),
+                    response=False
+                )
+
+                self.log_event("SEND done")
+                await client.disconnect()
+
+        except Exception as e:
+            self.log_event(f"SEND error: {e}")
 
         await asyncio.sleep(0.5)
         self.listening = True
+
 
 
             
