@@ -7,23 +7,10 @@ class BluetoothServer:
     """A class to handle Bluetooth LE server operations"""
     
     def __init__(self):
-        self.HM10_MAC_ADDRESS = "50:F1:4A:4D:DC:E9"
+        self.HM10_MAC_ADDRESS = ["50:F1:4A:4D:DC:E9", "5C:F8:21:9E:55:84"]
         self.CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
         self.LOG_FILE = "log.txt"
 
-    async def main(self):
-        """Main entry point for Bluetooth operations"""
-        # Uncomment to scan for devices
-        devices = await BleakScanner.discover()
-        for d in devices:
-            self.log_event(d)
-
-        message = "Connected@"
-        await self.connect_and_send_message(self.HM10_MAC_ADDRESS, message)
-
-    def start(self):
-        """Start the Bluetooth server"""
-        asyncio.run(self.main())
 
     def log_event(self, event):
         """
@@ -42,8 +29,8 @@ class BluetoothServer:
 
     
 
-    async def listen(self):
-        async with BleakClient(self.HM10_MAC_ADDRESS) as client:
+    async def listen(self, MAC):
+        async with BleakClient(MAC) as client:
             self.log_event("BLE listener connected")
 
             def handle_notify(_, data: bytearray):
@@ -74,7 +61,8 @@ class BluetoothServer:
     def start(self):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        loop.create_task(self.listen())
+        for mac in self.HM10_MAC_ADDRESS:
+            loop.create_task(self.listen(mac))
         loop.run_forever()
 
 # Example usage
