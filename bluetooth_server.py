@@ -95,22 +95,26 @@ class BluetoothServer:
         try:
             async with BleakClient(mac_address) as client:
                 await client.connect()
-                self.log_event(f"SEND connected {mac_address}")
+                self.log_event("SEND connected")
 
-                await client.write_gatt_char(
-                    self.CHARACTERISTIC_UUID,
-                    message.encode(),
-                    response=False
-                )
+                # === KLÍČOVÁ ČÁST ===
+                for ch in message:
+                    await client.write_gatt_char(
+                        self.CHARACTERISTIC_UUID,
+                        ch.encode(),
+                        response=False
+                    )
+                    await asyncio.sleep(0.03)  # 30 ms mezi znaky
 
                 self.log_event("SEND done")
                 await client.disconnect()
 
         except Exception as e:
-            self.log_event(f"SEND error: {e}")
+            self.log_event(f"SEND error {e}")
 
         await asyncio.sleep(0.5)
         self.listening = True
+
 
 
 
