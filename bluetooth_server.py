@@ -56,7 +56,7 @@ class BluetoothServer:
         async with BleakClient(mac_address) as client:
             await client.connect()
             await client.write_gatt_char(
-                self.CHAR_UUID,
+                self.CHARACTERISTIC_UUID,
                 message.encode(),
                 response=False
             )
