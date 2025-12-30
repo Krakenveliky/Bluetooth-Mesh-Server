@@ -40,22 +40,6 @@ class BluetoothServer:
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 f.write(f"{timestamp} - {event}\n")
 
-    
-
-    async def listen(self):
-        async with BleakClient(self.HM10_MAC_ADDRESS) as client:
-            self.log_event("BLE listener connected")
-
-            def handle_notify(_, data: bytearray):
-                message = data.decode(errors="ignore").strip()
-                print("RX:", message)
-                self.log_event(f"RX {message}")
-
-            await client.start_notify(self.CHARACTERISTIC_UUID, handle_notify)
-
-            while True:
-                await asyncio.sleep(1)
-
     async def connect_and_send_message(self, mac_address, message):
         """
         Connect to a Bluetooth device and send a message
@@ -70,8 +54,5 @@ class BluetoothServer:
                 self.log_event(f"Message sent: {message}")
 
             self.log_event("Disconnecting...")
-            
-    def start(self):
-        asyncio.run(self.main())
 
 # Example usage
