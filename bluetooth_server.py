@@ -27,7 +27,10 @@ class BluetoothServer:
     # -------------------------------------------------
     async def listen(self):
         while True:
+            await asyncio.sleep(0.2)
+            continue
             if not self.listening:
+                await self._disconnect_listener()
                 await asyncio.sleep(0.2)
                 continue
 
@@ -74,35 +77,32 @@ class BluetoothServer:
         )
 
     async def _send(self, mac_address, message):
-        # 1️⃣ ÚPLNĚ ODPOJ LISTENER
-        await self._disconnect_listener()
-
+        # zastav listener
+        self.listening = False
         await asyncio.sleep(0.5)
 
         try:
             async with BleakClient(mac_address) as client:
                 await client.connect()
-                await asyncio.sleep(0.4)  # KRITICKÉ
+                self.log_event(f"SEND connected {mac_address}")
 
+                # POSÍLÁME PO ZNAKU (HM-10 UART styl)
                 for ch in message:
                     await client.write_gatt_char(
                         self.CHARACTERISTIC_UUID,
                         ch.encode(),
                         response=False
                     )
-                    await asyncio.sleep(0.05)
+                    await asyncio.sleep(0.03)
 
-                await asyncio.sleep(0.4)
+                self.log_event("SEND done")
                 await client.disconnect()
 
         except Exception as e:
             self.log_event(f"SEND error: {e}")
 
         await asyncio.sleep(0.5)
-
-        # 2️⃣ ZNOVU SPUSŤ LISTENER
         self.listening = True
-
 
     # -------------------------------------------------
     # START
