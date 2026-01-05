@@ -41,6 +41,21 @@ class BluetoothServer:
                     print("RX:", msg)
                     self.log_event(f"RX {msg}")
 
+                    if "TEST1@" in msg:
+                        # rozsvítit
+                        self.connect_and_send_message(
+                            "5C:F8:21:9E:55:84",
+                            "|ON@"
+                        )
+
+                    elif "TEST2@" in msg:
+                        # zhasnout
+                        self.connect_and_send_message(
+                            "5C:F8:21:9E:55:84",
+                            "|OFF@"
+                        )
+
+
                 await self.listener_client.start_notify(
                     self.CHARACTERISTIC_UUID,
                     handle_notify
