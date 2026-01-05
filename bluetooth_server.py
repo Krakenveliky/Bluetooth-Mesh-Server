@@ -99,13 +99,12 @@ class BluetoothServer:
                 self.log_event(f"SEND connected {mac_address}")
 
                 # POSÍLÁME PO ZNAKU (HM-10 UART styl)
-                for ch in message:
-                    await client.write_gatt_char(
-                        self.CHARACTERISTIC_UUID,
-                        ch.encode(),
-                        response=True
-                    )
-                    await asyncio.sleep(0.03)
+                await client.write_gatt_char(
+                    self.CHARACTERISTIC_UUID,
+                    message,
+                    response=True
+                )
+                await asyncio.sleep(0.03)
 
                 self.log_event("SEND done")
                 await client.disconnect()
