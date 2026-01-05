@@ -28,7 +28,6 @@ class BluetoothServer:
     async def listen(self):
         while True:
             if not self.listening:
-                await self._disconnect_listener()
                 await asyncio.sleep(0.2)
                 continue
 
@@ -77,11 +76,11 @@ class BluetoothServer:
     async def _send(self, mac_address, message):
         # zastav listener
         self.listening = False
+        await self._disconnect_listener()
         await asyncio.sleep(0.5)
 
         try:
             async with BleakClient(mac_address) as client:
-                
                 self.log_event(f"SEND connected {mac_address}")
 
                 # POSÍLÁME PO ZNAKU (HM-10 UART styl)
