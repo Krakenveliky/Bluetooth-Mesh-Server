@@ -7,14 +7,9 @@ class BluetoothServer:
     """Bluetooth gateway for HM-10 modules (listener + sender, sequential)"""
 
     def __init__(self):
-        # Arduino A (tlačítka, POSÍLÁ)
         self.LISTENER_MAC = "50:F1:4A:4D:DC:E9"
-
-        # Arduino B (LED, PŘIJÍMÁ)
         self.CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
-
         self.LOG_FILE = "log.txt"
-
         self.loop = None
         self.listening = True
         self.listener_client = None
@@ -33,7 +28,6 @@ class BluetoothServer:
     async def listen(self):
         while True:
             if not self.listening:
-                await self._disconnect_listener()
                 await asyncio.sleep(0.2)
                 continue
 
@@ -80,32 +74,35 @@ class BluetoothServer:
         )
 
     async def _send(self, mac_address, message):
-        # zastav listener
-        self.listening = False
+        # 1️⃣ ÚPLNĚ ODPOJ LISTENER
+        await self._disconnect_listener()
+
         await asyncio.sleep(0.5)
 
         try:
             async with BleakClient(mac_address) as client:
                 await client.connect()
-                self.log_event(f"SEND connected {mac_address}")
+                await asyncio.sleep(0.4)  # KRITICKÉ
 
-                # POSÍLÁME PO ZNAKU (HM-10 UART styl)
                 for ch in message:
                     await client.write_gatt_char(
                         self.CHARACTERISTIC_UUID,
                         ch.encode(),
                         response=False
                     )
-                    await asyncio.sleep(0.03)
+                    await asyncio.sleep(0.05)
 
-                self.log_event("SEND done")
+                await asyncio.sleep(0.4)
                 await client.disconnect()
 
         except Exception as e:
             self.log_event(f"SEND error: {e}")
 
         await asyncio.sleep(0.5)
+
+        # 2️⃣ ZNOVU SPUSŤ LISTENER
         self.listening = True
+
 
     # -------------------------------------------------
     # START
