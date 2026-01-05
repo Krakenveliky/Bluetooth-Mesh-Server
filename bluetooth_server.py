@@ -101,7 +101,7 @@ class BluetoothServer:
                 # POSÍLÁME PO ZNAKU (HM-10 UART styl)
                 await client.write_gatt_char(
                     self.CHARACTERISTIC_UUID,
-                    message,
+                    message.encode(),
                     response=True
                 )
                 await asyncio.sleep(0.03)
