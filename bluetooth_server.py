@@ -102,7 +102,6 @@ class BluetoothServer:
                 await client.write_gatt_char(
                     self.CHARACTERISTIC_UUID,
                     message.encode(),
-                    response=True
                 )
                 await asyncio.sleep(0.03)
 
