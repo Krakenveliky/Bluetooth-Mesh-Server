@@ -4,25 +4,27 @@ from datetime import datetime
 
 
 class BluetoothServer:
-    """Realtime BLE gateway – no reconnect lag"""
 
     def __init__(self):
         self.LISTENER_MAC = "50:F1:4A:4D:DC:E9"
         self.SENDER_MAC   = "5C:F8:21:9E:55:84"
 
-        self.CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
+        self.CHAR_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
         self.LOG_FILE = "log.txt"
 
         self.loop = None
         self.listener_client = None
         self.sender_client = None
 
+        # 🔐 zabrání BLE kolizím
+        self.ble_lock = asyncio.Lock()
+
     # ---------------- LOG ----------------
 
-    def log_event(self, event):
+    def log_event(self, msg):
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(self.LOG_FILE, "a") as f:
-            f.write(f"{ts} - {event}\n")
+            f.write(f"{ts} - {msg}\n")
 
     # ---------------- LISTENER ----------------
 
@@ -33,20 +35,17 @@ class BluetoothServer:
                 await self.listener_client.connect()
                 self.log_event("LISTENER connected")
 
-                def handle_notify(_, data):
+                def on_notify(_, data):
                     msg = data.decode(errors="ignore").strip()
                     self.log_event(f"RX {msg}")
 
-                    if "ON@" in msg:
-                        self.send("|ON@")
+                    if msg == "O@":
+                        self.send("|O@")
 
-                    elif "OFF@" in msg:
-                        self.send("|OFF@")
+                    elif msg == "F@":
+                        self.send("|F@")
 
-                await self.listener_client.start_notify(
-                    self.CHARACTERISTIC_UUID,
-                    handle_notify
-                )
+                await self.listener_client.start_notify(self.CHAR_UUID, on_notify)
 
                 while True:
                     await asyncio.sleep(1)
@@ -69,17 +68,25 @@ class BluetoothServer:
                 await asyncio.sleep(1)
 
     def send(self, message):
-        if not self.sender_client:
-            return
 
-        asyncio.run_coroutine_threadsafe(
-            self.sender_client.write_gatt_char(
-                self.CHARACTERISTIC_UUID,
-                message.encode(),
-                response=False
-            ),
-            self.loop
-        )
+        async def safe_write():
+            try:
+                async with self.ble_lock:
+                    if not self.sender_client or not self.sender_client.is_connected:
+                        await self.connect_sender()
+
+                    await self.sender_client.write_gatt_char(
+                        self.CHAR_UUID,
+                        message.encode(),
+                        response=False
+                    )
+
+                    self.log_event(f"SEND {message}")
+
+            except Exception as e:
+                self.log_event(f"SEND error {e}")
+
+        asyncio.run_coroutine_threadsafe(safe_write(), self.loop)
 
     # ---------------- START ----------------
 
