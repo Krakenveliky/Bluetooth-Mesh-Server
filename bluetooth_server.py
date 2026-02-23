@@ -4,33 +4,30 @@ from datetime import datetime
 
 
 class BluetoothServer:
-    """Bluetooth gateway for HM-10 modules (listener + sender, sequential)"""
+    """Realtime BLE gateway – no reconnect lag"""
 
     def __init__(self):
         self.LISTENER_MAC = "50:F1:4A:4D:DC:E9"
+        self.SENDER_MAC   = "5C:F8:21:9E:55:84"
+
         self.CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
         self.LOG_FILE = "log.txt"
-        self.loop = None
-        self.listening = True
-        self.listener_client = None
 
-    # -------------------------------------------------
-    # LOG
-    # -------------------------------------------------
+        self.loop = None
+        self.listener_client = None
+        self.sender_client = None
+
+    # ---------------- LOG ----------------
+
     def log_event(self, event):
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(self.LOG_FILE, "a") as f:
             f.write(f"{ts} - {event}\n")
 
-    # -------------------------------------------------
-    # LISTENER (Arduino A → RPi)
-    # -------------------------------------------------
+    # ---------------- LISTENER ----------------
+
     async def listen(self):
         while True:
-            if not self.listening:
-                await asyncio.sleep(0.2)
-                continue
-
             try:
                 self.listener_client = BleakClient(self.LISTENER_MAC)
                 await self.listener_client.connect()
@@ -38,89 +35,59 @@ class BluetoothServer:
 
                 def handle_notify(_, data):
                     msg = data.decode(errors="ignore").strip()
-                    print("RX:", msg)
                     self.log_event(f"RX {msg}")
 
-                    if "TEST1@" in msg:
-                        # rozsvítit
-                        self.connect_and_send_message(
-                            "5C:F8:21:9E:55:84",
-                            "|ON@"
-                        )
+                    if "ON@" in msg:
+                        self.send("|ON@")
 
-                    elif "TEST2@" in msg:
-                        # zhasnout
-                        self.connect_and_send_message(
-                            "5C:F8:21:9E:55:84",
-                            "|OFF@"
-                        )
-
+                    elif "OFF@" in msg:
+                        self.send("|OFF@")
 
                 await self.listener_client.start_notify(
                     self.CHARACTERISTIC_UUID,
                     handle_notify
                 )
 
-                while self.listening:
-                    await asyncio.sleep(0.2)
+                while True:
+                    await asyncio.sleep(1)
 
             except Exception as e:
-                self.log_event(f"LISTENER error: {e}")
+                self.log_event(f"LISTENER error {e}")
                 await asyncio.sleep(1)
 
-    async def _disconnect_listener(self):
-        if self.listener_client:
-            try:
-                await self.listener_client.stop_notify(self.CHARACTERISTIC_UUID)
-                await self.listener_client.disconnect()
-                self.log_event("LISTENER disconnected")
-            except Exception as e:
-                self.log_event(f"LISTENER disconnect error: {e}")
-            self.listener_client = None
+    # ---------------- SENDER ----------------
 
-    # -------------------------------------------------
-    # SEND (RPi → Arduino B)
-    # -------------------------------------------------
-    def connect_and_send_message(self, mac_address, message):
-        self.log_event(f"SEND request {mac_address} {message}")
+    async def connect_sender(self):
+        while True:
+            try:
+                self.sender_client = BleakClient(self.SENDER_MAC)
+                await self.sender_client.connect()
+                self.log_event("SENDER connected")
+                return
+            except Exception as e:
+                self.log_event(f"SENDER connect error {e}")
+                await asyncio.sleep(1)
+
+    def send(self, message):
+        if not self.sender_client:
+            return
+
         asyncio.run_coroutine_threadsafe(
-            self._send(mac_address, message),
+            self.sender_client.write_gatt_char(
+                self.CHARACTERISTIC_UUID,
+                message.encode(),
+                response=False
+            ),
             self.loop
         )
 
-    async def _send(self, mac_address, message):
-        # zastav listener
-        self.listening = False
-        await self._disconnect_listener()
-        await asyncio.sleep(0.5)
+    # ---------------- START ----------------
 
-        try:
-            async with BleakClient(mac_address) as client:
-                self.log_event(f"SEND connected {mac_address}")
-
-                # POSÍLÁME PO ZNAKU (HM-10 UART styl)
-                await client.write_gatt_char(
-                    self.CHARACTERISTIC_UUID,
-                    message.encode(),
-                    response=True
-                )
-                await asyncio.sleep(0.03)
-
-                self.log_event("SEND done")
-                await client.disconnect()
-
-        except Exception as e:
-            self.log_event(f"SEND error: {e}")
-
-        await asyncio.sleep(0.5)
-        self.listening = True
-
-    # -------------------------------------------------
-    # START
-    # -------------------------------------------------
     def start(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
 
         self.loop.create_task(self.listen())
+        self.loop.create_task(self.connect_sender())
+
         self.loop.run_forever()
