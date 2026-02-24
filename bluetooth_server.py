@@ -16,7 +16,6 @@ class BluetoothServer:
         self.listener_client = None
         self.sender_client = None
 
-        # 🔐 zabrání BLE kolizím
         self.ble_lock = asyncio.Lock()
 
     # ---------------- LOG ----------------
@@ -39,13 +38,16 @@ class BluetoothServer:
                     msg = data.decode(errors="ignore").strip()
                     self.log_event(f"RX {msg}")
 
-                    if msg == "O@":
-                        self.send("|O@")
+                    if msg in ("O@", "F@"):
+                        self.handle_power(msg)
 
-                    elif msg == "F@":
-                        self.send("|F@")
+                    elif msg in ("R@","G@","B@","Y@","P@","C@"):
+                        self.handle_color(msg)
 
-                await self.listener_client.start_notify(self.CHAR_UUID, on_notify)
+                await self.listener_client.start_notify(
+                    self.CHAR_UUID,
+                    on_notify
+                )
 
                 while True:
                     await asyncio.sleep(1)
@@ -53,6 +55,14 @@ class BluetoothServer:
             except Exception as e:
                 self.log_event(f"LISTENER error {e}")
                 await asyncio.sleep(1)
+
+    # ---------------- HANDLERS ----------------
+
+    def handle_power(self, msg):
+        self.send(f"|{msg}")
+
+    def handle_color(self, msg):
+        self.send(f"|{msg}")
 
     # ---------------- SENDER ----------------
 
